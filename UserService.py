@@ -1,4 +1,3 @@
-import UserService
 import json
 import sqlite3
 import os
@@ -31,19 +30,29 @@ def signup():
     with sqlite3.connect('database.db') as connection:
       cursor = connection.cursor()
 
-      insert = '''
-        INSERT INTO Users (username, password)
-        VALUES (?, ?);'''
-      
-      cursor.execute(insert, (username, password))
-
-      connection.commit()
-
       select = '''
-        SELECT id FROM Users WHERE username = ?'''
+      SELECT * FROM Users WHERE username = ?'''
+
       cursor.execute(select, (username,))
-      id = cursor.fetchone()
-    return jsonify({'id':id[0]}), 200
+      user_exists = cursor.fetchone()
+      
+
+      if user_exists:
+        return jsonify({'error': 'That username is already taken'}), 409
+      else:
+        insert = '''
+          INSERT INTO Users (username, password)
+          VALUES (?, ?);'''
+        
+        cursor.execute(insert, (username, password))
+
+        connection.commit()
+
+        select = '''
+          SELECT id FROM Users WHERE username = ?'''
+        cursor.execute(select, (username,))
+        id = cursor.fetchone()
+      return jsonify({'id':id[0]}), 200
 
   
 @app.route('/login', methods=['POST'])
@@ -80,13 +89,22 @@ def change_password():
     with sqlite3.connect('database.db') as connection:
       cursor = connection.cursor()
 
-      update = '''
-          UPDATE Users SET password = ? WHERE username = ? AND password = ?'''
-      cursor.execute(update, (newPassword, username, password))
+      select = '''
+        SELECT * FROM Users WHERE username = ? AND password = ?'''
+      cursor.execute(select, (username, password))
+      user_exists = cursor.fetchone()
 
-      connection.commit()
-        
-      return jsonify({'data': 'Password changed successfully'}), 200
+      if user_exists:
+
+        update = '''
+            UPDATE Users SET password = ? WHERE username = ? AND password = ?'''
+        cursor.execute(update, (newPassword, username, password))
+
+        connection.commit()
+          
+        return jsonify({'data': 'Password changed successfully'}), 200
+      else:
+        return jsonify({'error': 'User not found. Password failed to update'}), 401
     
 
 if __name__ == "__main__":
